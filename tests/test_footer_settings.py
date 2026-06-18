@@ -33,6 +33,43 @@ class TestFooterSettings(unittest.TestCase):
 
         self.assertLess(call_lines["stop"], call_lines["style"])
 
+    def test_apply_settings_does_not_replace_live_footer_graphics_effect(self):
+        apply_settings = self._main_window_method("apply_settings")
+
+        creates_opacity_effect = [
+            node for node in ast.walk(apply_settings)
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "QGraphicsOpacityEffect"
+            )
+        ]
+        calls_set_graphics_effect = [
+            node for node in ast.walk(apply_settings)
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "setGraphicsEffect"
+            )
+        ]
+        clears_footer_effect = [
+            node for node in ast.walk(apply_settings)
+            if (
+                isinstance(node, ast.Assign)
+                and any(
+                    isinstance(target, ast.Attribute)
+                    and target.attr == "footer_opacity_effect"
+                    for target in node.targets
+                )
+                and isinstance(node.value, ast.Constant)
+                and node.value.value is None
+            )
+        ]
+
+        self.assertEqual([], creates_opacity_effect)
+        self.assertEqual([], calls_set_graphics_effect)
+        self.assertEqual([], clears_footer_effect)
+
     def test_footer_style_does_not_replace_footer_graphics_effect(self):
         setup_footer_style = self._main_window_method("setup_footer_style")
 

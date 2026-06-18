@@ -985,19 +985,23 @@ class BongoCatWindow(QtWidgets.QWidget):
         except Exception:
             return False
 
+    def _ensure_footer_opacity_effect(self):
+        """Create the footer opacity effect only if Qt has deleted it."""
+        if self._footer_effect_alive():
+            return
+
+        self.footer_opacity_effect = QtWidgets.QGraphicsOpacityEffect(self.footer_widget)
+        self.footer_widget.setGraphicsEffect(self.footer_opacity_effect)
+        if hasattr(self, 'footer_animation'):
+            self.footer_animation.setTargetObject(self.footer_opacity_effect)
+            self.footer_animation.setPropertyName(b"opacity")
+
     def fade_footer(self, fade_in: bool):
         """Fade the footer in or out."""
         # If the footer should always be visible
         if not self.config.hidden_footer:
             self.footer_widget.show()
-
-            # Make sure the opacity effect is valid
-            if not self._footer_effect_alive():
-                self.footer_opacity_effect = QtWidgets.QGraphicsOpacityEffect(self.footer_widget)
-                self.footer_widget.setGraphicsEffect(self.footer_opacity_effect)
-                self.footer_animation.setTargetObject(self.footer_opacity_effect)
-                self.footer_animation.setPropertyName(b"opacity")
-
+            self._ensure_footer_opacity_effect()
             self.footer_opacity_effect.setOpacity(1.0)
             return
 
@@ -1005,12 +1009,7 @@ class BongoCatWindow(QtWidgets.QWidget):
         if fade_in and not self.is_hovering:
             return
 
-        # Create/validate the opacity effect
-        if not self._footer_effect_alive():
-            self.footer_opacity_effect = QtWidgets.QGraphicsOpacityEffect(self.footer_widget)
-            self.footer_widget.setGraphicsEffect(self.footer_opacity_effect)
-            self.footer_animation.setTargetObject(self.footer_opacity_effect)
-            self.footer_animation.setPropertyName(b"opacity")
+        self._ensure_footer_opacity_effect()
 
         # Set up and start the animation
         self.footer_animation.stop()
@@ -1338,25 +1337,23 @@ class BongoCatWindow(QtWidgets.QWidget):
         # Apply settings
         self.config.save()
         
-        # Stop callbacks before replacing the graphics effect in setup_footer_style().
+        # Stop footer callbacks while settings rewrite style and visibility.
         self.footer_animation.stop()
-        self.footer_opacity_effect = None
 
         # Update the footer styling with new alpha
         self.setup_footer_style()
-
-        # Recreate the opacity effect to ensure it's valid
-        self.footer_opacity_effect = QtWidgets.QGraphicsOpacityEffect(self.footer_widget)
-        self.footer_widget.setGraphicsEffect(self.footer_opacity_effect)
-
-        # Reconnect animation to the new effect
-        self.footer_animation.setTargetObject(self.footer_opacity_effect)
-        self.footer_animation.setPropertyName(b"opacity")
+        self._ensure_footer_opacity_effect()
         
         # Update footer visibility based on hidden_footer setting
         if not self.config.hidden_footer:
             self.footer_widget.show()
             self.footer_opacity_effect.setOpacity(1.0)
+        elif self.is_hovering:
+            self.footer_widget.show()
+            self.footer_opacity_effect.setOpacity(1.0)
+        else:
+            self.footer_opacity_effect.setOpacity(0.0)
+            self.footer_widget.hide()
         
         # Update UI based on new settings
         if self.config.always_show_points:

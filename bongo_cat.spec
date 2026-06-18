@@ -6,6 +6,25 @@ import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
+APP_NAME = 'BongoCat'
+APP_ICON = 'img/cat-rest.png' if os.path.exists('img/cat-rest.png') else None
+IS_MACOS = sys.platform == 'darwin'
+
+
+def app_version():
+    """Return the release tag version when available, otherwise package version."""
+    ref_name = os.environ.get('GITHUB_REF_NAME', '')
+    if ref_name.startswith('v') and ref_name[1:]:
+        return ref_name[1:]
+
+    try:
+        from bongo_cat import __version__
+        return __version__
+    except Exception:
+        return '0.0.0'
+
+
+APP_VERSION = app_version()
 
 # Collect all data files
 datas = []
@@ -53,15 +72,15 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
+    [] if IS_MACOS else a.binaries,
+    [] if IS_MACOS else a.zipfiles,
+    [] if IS_MACOS else a.datas,
     [],
-    name='BongoCat',
+    name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=not IS_MACOS,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,  # No console window
@@ -70,19 +89,34 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='img/cat-rest.png' if os.path.exists('img/cat-rest.png') else None,
+    icon=APP_ICON,
+    exclude_binaries=IS_MACOS,
 )
 
 # macOS app bundle
-if sys.platform == 'darwin':
-    app = BUNDLE(
+if IS_MACOS:
+    coll = COLLECT(
         exe,
-        name='BongoCat.app',
-        icon='img/cat-rest.png' if os.path.exists('img/cat-rest.png') else None,
+        a.binaries,
+        a.zipfiles,
+        a.datas,
+        strip=False,
+        upx=False,
+        upx_exclude=[],
+        name=APP_NAME,
+    )
+
+    app = BUNDLE(
+        coll,
+        name=f'{APP_NAME}.app',
+        icon=APP_ICON,
         bundle_identifier='com.luinbytes.bongocat',
+        version=APP_VERSION,
         info_plist={
             'NSPrincipalClass': 'NSApplication',
             'NSHighResolutionCapable': 'True',
             'LSBackgroundOnly': 'False',
+            'CFBundleShortVersionString': APP_VERSION,
+            'CFBundleVersion': APP_VERSION,
         },
     )
